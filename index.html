@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasveer | AI Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-blue-900 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white/10 backdrop-blur-lg shadow-2xl rounded-2xl p-8 w-full max-w-xl border border-white/20">
+        <h1 class="text-4xl text-center mb-6 text-white font-bold tracking-tight">Tasveer AI</h1>
+        <h1 class="text-4xl text-center mb-6 text-white font-bold tracking-tight">AI Image Generator</h1>
+        
+        <div class="mb-4">
+            <label for="apiToken" class="block text-sm font-medium text-white mb-2">Hugging Face API Token</label>
+            <input 
+                type="text" 
+                id="apiToken" 
+                placeholder="Enter your Hugging Face API token" 
+                class="w-full px-3 py-2 bg-white/10 text-white border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+            <p class="text-xs text-white/70 mt-2">
+                Don't have a token? 
+                <a 
+                    href="https://huggingface.co/join" 
+                    target="_blank" 
+                    class="text-blue-400 hover:underline"
+                >
+                    Create a Hugging Face account
+                </a>
+            </p>
+        </div>
+
+        <div class="mb-4">
+            <label for="textInput" class="block text-sm font-medium text-white mb-2">Image Prompt</label>
+            <textarea 
+                id="textInput" 
+                rows="4" 
+                placeholder="Describe the image you want to generate (e.g., 'A serene landscape with mountains and a lake')"
+                class="w-full px-3 py-2 bg-white/10 text-white border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            ></textarea>
+        </div>
+
+        <div class="mb-4">
+            <label for="modelSelect" class="block text-sm font-medium text-white mb-2">Select Model</label>
+            <select 
+                id="modelSelect" 
+                class="w-full px-3 py-2 bg-white/10 text-white border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="ZB-Tech/Text-to-Image">ZB-Tech Text-to-Image</option>
+                <option value="stabilityai/stable-diffusion-xl-base-1.0">Stable Diffusion XL</option>
+                <option value="runwayml/stable-diffusion-v1-5">Stable Diffusion v1.5</option>
+            </select>
+        </div>
+
+        <button 
+            id="GenerateBtn" 
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        >
+            Generate Image
+        </button>
+
+        <div 
+            id="loadingIndicator" 
+            class="hidden w-full flex justify-center items-center text-white mb-4"
+        >
+            <svg class="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="ml-3">Generating image...</span>
+        </div>
+
+        <div 
+            id="imageContainer" 
+            class="mt-6 w-full flex flex-col items-center justify-center"
+        >
+            <!-- Generated images will appear here -->
+        </div>
+
+        <div 
+            id="errorContainer" 
+            class="text-red-400 text-center mt-4"
+        >
+            <!-- Error messages will appear here -->
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("GenerateBtn").addEventListener("click", async function () {
+            // Reset previous state
+            const imageContainer = document.getElementById("imageContainer");
+            const loadingIndicator = document.getElementById("loadingIndicator");
+            const errorContainer = document.getElementById("errorContainer");
+            imageContainer.innerHTML = '';
+            errorContainer.textContent = '';
+            
+            // Get inputs
+            const token = document.getElementById("apiToken").value;
+            const input = document.getElementById("textInput").value;
+            const model = document.getElementById("modelSelect").value;
+
+            // Validate inputs
+            if (!token) {
+                errorContainer.textContent = "Please enter your Hugging Face API token";
+                return;
+            }
+            if (!input) {
+                errorContainer.textContent = "Please enter a description for the image";
+                return;
+            }
+
+            // Show loading indicator
+            loadingIndicator.classList.remove('hidden');
+
+            // Function to generate image
+            async function generateImage(data, selectedModel) {
+                const response = await fetch(
+                    `https://api-inference.huggingface.co/models/${selectedModel}`,
+                    {
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        method: "POST",
+                        body: JSON.stringify({ inputs: data }),
+                    }
+                );
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || "API error");
+                }
+
+                return await response.blob();
+            }
+
+            try {
+                // Generate image
+                const imageBlob = await generateImage(input, model);
+                const imageUrl = URL.createObjectURL(imageBlob);
+                
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+
+                // Create image element
+                const imgElement = document.createElement('img');
+                imgElement.src = imageUrl;
+                imgElement.alt = input;
+                imgElement.classList.add('max-w-full', 'rounded-lg', 'shadow-2xl', 'mb-4');
+
+                // Create download button
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = "Download Image";
+                downloadBtn.classList.add(
+                    'bg-green-500', 'hover:bg-green-600', 'text-white', 
+                    'font-bold', 'py-2', 'px-6', 'rounded-lg', 
+                    'transition', 'duration-300', 'ease-in-out', 
+                    'transform', 'hover:scale-105'
+                );
+
+                downloadBtn.addEventListener("click", function() {
+                    const link = document.createElement('a');
+                    link.href = imageUrl;
+                    link.download = `ai-generated-${Date.now()}.png`;
+                    link.click();
+                });
+
+                // Clear previous content and add new image and download button
+                imageContainer.innerHTML = '';
+                imageContainer.appendChild(imgElement);
+                imageContainer.appendChild(downloadBtn);
+
+            } catch (error) {
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+                
+                // Display error
+                errorContainer.textContent = `Error: ${error.message}`;
+                console.error("Error generating image:", error);
+            }
+        });
+    </script>
+</body>
+</html>
